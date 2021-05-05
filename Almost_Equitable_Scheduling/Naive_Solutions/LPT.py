@@ -16,7 +16,7 @@ class LPT(Solution):
             task = self.tasks.pop()  # will pop heaviest task
             n += 1
             dev = int(n / m)  # rounded downwards
-            min_machine = min(self.machines, key=lambda mach: mach.taskNum)
+            min_machine = min(self.machines, key=lambda mach: mach.task_num)
             if not min_machine.is_legal_amount(dev):  # is the machine with the least tasks legal
                 min_machine.add_task(task)  # if not make it legal
             else:

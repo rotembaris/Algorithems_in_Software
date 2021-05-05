@@ -18,8 +18,8 @@ class LPTTest(unittest.TestCase):
               "".format(
                 INPUT_NAME=input[2], SOLUTION=str(solution),
                 MIN_WEIGHT=str(min(solution.machines).weight),
-                MIN_TASK=str(min(solution.machines, key=lambda m: m.taskNum).taskNum),
-                MAX_TASK=str(max(solution.machines, key=lambda m: m.taskNum).taskNum)))
+                MIN_TASK=str(min(solution.machines, key=lambda m: m.task_num).task_num),
+                MAX_TASK=str(max(solution.machines, key=lambda m: m.task_num).task_num)))
         return solution
 
     def test_LPT(self):

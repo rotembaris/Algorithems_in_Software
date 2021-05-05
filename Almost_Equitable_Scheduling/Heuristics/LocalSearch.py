@@ -1,128 +1,114 @@
 from Almost_Equitable_Scheduling.Solution import Solution
 from Almost_Equitable_Scheduling.Naive_Solutions.LPT import LPT
-from Almost_Equitable_Scheduling.Machine import Machine
-import copy
 import itertools
-import time
+import logging
 
 
 class LocalSearch(Solution):
 
-    def __init__(self, tasks: [tuple], machine_num: int, loop_num: int = 2):
+    def __init__(self, tasks: [tuple], machine_num: int, loop_num: int = 3):
         super().__init__(tasks, machine_num)
-        self.machines = LPT(self.tasks, self.machineNum).machines
         self.n = int(len(tasks) / machine_num)
-        self.loopNum = loop_num
-        self.start_time = time.time()
-        solution = self.loop_search_secondary()
-        # solution = self.local_search()
-        self.end_time = time.time()
-        print(str(self.end_time - self.start_time))
-        self.machines = solution
+        self.m = machine_num
+        self.search_area = loop_num
+        self.log = logging.getLogger(f"{machine_num}_{self.n}")
 
-    @staticmethod
-    def task_iterator(machines: [Machine]) -> ([Machine], [tuple]):
-        for machine in machines:
-            for task in machine.Tasks:
-                yield machine, task
+    def local_search(self):
+        self.machines = sorted(LPT(self.tasks, self.machineNum).machines, reverse=True)
+        if self.machines[0].weight - self.machines[-1].weight <= 1:
+            self.log.info("LPT solution is optimal")
+            return self.machines
+        area_index = 1
+        while area_index <= self.search_area:
+            option_iter = self.option_iterator(area_index)
+            for option in option_iter:
+                if self.try_option(option):
+                    if self.accept_change(option):
+                        return
+                    area_index = 0
+                    break
+                else:
+                    self.reverse_option(option)
+            area_index += 1
+        return
 
-    def local_search(self) -> [Machine]:
-        search_area = 1
-        machines = [copy.copy(mach) for mach in self.machines]
-        while search_area <= self.loopNum:
-            loop_iter = self.loop_search(search_area, machines)
-            for change in loop_iter:
-                if self.square_value(change) < self.square_value(self.machines):
-                    if max(change).weight - min(change).weight <= 1:
-                        return change
-                    self.machines = change
-                    return self.local_search()
-            search_area += 1
-        return self.machines
+    def try_option(self, option):
+        val = -(option[0][0].weight ** 2 + option[0][1].weight ** 2)
+        for (new_machine, old_machine, task) in option:
+            old_machine.remove_task(task)
+            new_machine.add_task(task)
+        val += (option[0][0].weight ** 2 + option[0][1].weight ** 2)
+        return val < 0
 
-    def local_search_secondary(self):
-        for change in self.loop_search_secondary():
-            if self.square_value(change) < self.square_value(self.machines):
-                    if max(change).weight - min(change).weight <= 1:
-                        return change
-                    self.machines = change
-                    return self.local_search()
+    def reverse_option(self, option):
+        for (new_machine, old_machine, task) in option:
+            new_machine.remove_task(task)
+            old_machine.add_task(task)
 
-    def loop_search_secondary(self):
-        search_area = 1
-        machines = [copy.copy(mach) for mach in self.machines]
-        while search_area <= self.loopNum:
-            task_iter = self.task_iterator(machines)
-            combinator = itertools.combinations(task_iter, search_area)
-            for task_combination in sorted(combinator, key=lambda m: m[0][1][1], reverse=True):
-                for old_machine, task in task_combination:
-                    old_machine.remove_task(task[0])
-                options = [list(zip(x, task_combination)) for x in itertools.permutations(machines, len(task_combination))]
-                for option in options:
-                    flag = True
-                    for (new_machine, (old_machine, task)) in option:
-                        if new_machine != old_machine and new_machine.is_legal_amount(self.n - 1):
-                            new_machine.add_task(task)
-                        else:
-                            flag = False
-                            break
-                    if flag \
-                            and self.square_value(machines) < self.square_value(self.machines) \
-                            and min(machines, key=lambda m: m.taskNum).is_legal_amount(self.n):
-                        print(task)
-                        print(new_machine)
-                        print("->")
-                        print(old_machine)
-                        self.machines = machines
-                        return self.loop_search_secondary()
+    def accept_change(self, option):
+        msg = ("".join(f'\nmoved task: {task} : \nfrom machine {old_machine} \nto machine {new_machine}'
+                       for (new_machine, old_machine, task) in option))
+        self.log.debug(msg)
+        self.machines = sorted(self.machines, reverse=True)
+        return self.machines[0].weight - self.machines[-1].weight <= 1
 
-                    for (new_machine, (old_machine, task)) in option:
-                        if new_machine != old_machine and new_machine.has_task(task[0]):
-                            new_machine.remove_task(task[0])
-                for orig_machine, task in task_combination:
-                    orig_machine.add_task(task)
-            search_area += 1
+    """
+    iterators
+    """
 
-    def loop_search(self, search_area: int, machines: [Machine]) -> [Machine]:
-        tasks = []
-        remove_iter = self.remove_tasks(search_area, machines, tasks)
-        for tasks, solutions in remove_iter:
-            copy_tasks = [(copy.copy(tm[0]), tm[1]) for tm in tasks]
-            add_iter = self.add_tasks(copy_tasks, solutions)
-            for sol in add_iter:
-                yield sol
+    def option_iterator(self, tasknum):
+        if tasknum < 2:
+            option_single_iterator = self.option_single_iter()
+            for option in option_single_iterator:
+                yield option
+        else:
+            tasknum_one = int(tasknum / 2)
+            tasknum_two = tasknum - tasknum_one
+            task_dif = tasknum_one - tasknum_two
+            for i in range(self.m):
+                first_machine = self.machines[i]
+                for j in reversed(range(i + 1, self.m)):
+                    second_machine = self.machines[j]
+                    if (task_dif == 0 or (first_machine.is_legal_amount(self.n + task_dif)
+                                          and second_machine.is_legal_amount(self.n - task_dif))):
+                        com_iter = self.task_combination_iterator(first_machine, second_machine,
+                                                                  tasknum_one, tasknum_two)
+                        for task_com in com_iter:
+                            yield task_com
+                    if task_dif != 0 \
+                            and first_machine.is_legal_amount(self.n - task_dif) \
+                            and second_machine.is_legal_amount(self.n + task_dif):
+                        sec_com_iter = self.task_combination_iterator(first_machine, second_machine,
+                                                                      tasknum_two, tasknum_one)
+                        for task_com in sec_com_iter:
+                            yield task_com
 
-    def remove_tasks(self, search_area: int, machines: [Machine], tasks: [tuple] = []) -> ([tuple], [Machine]):
-        task_iter = self.task_iterator(machines)
-        combinator = itertools.combinations(task_iter, search_area)
-        for task_combination in sorted(combinator, key=lambda m: m[0][1][1], reverse=True):
-            for machine, task in task_combination:
-                machine.remove_task(task[1])
-                tasks.append((task, machine))
-            yield tasks, machines
-            for machine, task in task_combination:
-                machine.add_task(task)
-                tasks.remove((task, machine))
+    def option_single_iter(self):
+        for i in range(self.m):
+            machine = self.machines[i]
+            weight = 0
+            if machine.is_legal_amount(self.n + 1):
+                for j in reversed(range(i + 1, self.m)):
+                    second_machine = self.machines[j]
+                    if second_machine.is_legal_amount(self.n - 1):
+                        for task in machine.tasks:
+                            prev_weight = weight
+                            weight = task[1]
+                            if weight != prev_weight:
+                                yield [(second_machine, machine, task)]
+                            if weight == machine.tasks[-1][1]:
+                                break
 
-    def add_tasks(self, tasks: [tuple], machines: [Machine]) -> [Machine]:
-        for task in tasks:
-            for machine in sorted(machines):
-                if task[1] != machine and machine.is_legal_amount(self.n - 1):
-                    machine.add_task(task[0])
-                    tasks.remove(task)
-                    if len(tasks) > 0:
-                        add_iterator = self.add_tasks(tasks, machines)
-                        for sub_solution in add_iterator:
-                            yield sub_solution
-                    else:
-                        if min(machines, key=lambda m: m.taskNum).is_legal_amount(self.n):
-                            yield machines
-                    machine.remove_task(task[0][0])
-                    tasks.append(task)
-
-    @staticmethod
-    def square_value(machines: [Machine]) -> int:
-        square_weight = 0
-        for machine in machines:
-            square_weight += machine.weight ** 2
-        return square_weight
+    def task_combination_iterator(self, first_machine, second_machine, first_num, second_num):
+        first_sum = 0
+        for first_tasks in itertools.combinations(first_machine.tasks, first_num):
+            prev_sum_1 = first_sum
+            first_sum = sum([t[1] for t in first_tasks])
+            if first_sum != prev_sum_1:
+                second_sum = 0
+                for second_tasks in itertools.combinations(reversed(second_machine.tasks), second_num):
+                    prev_sum_2 = second_sum
+                    second_sum = sum([t[1] for t in second_tasks])
+                    if second_sum != prev_sum_2 and first_sum != second_sum:
+                        yield [(first_machine, second_machine, task) for task in second_tasks] \
+                              + [(second_machine, first_machine, task) for task in first_tasks]
