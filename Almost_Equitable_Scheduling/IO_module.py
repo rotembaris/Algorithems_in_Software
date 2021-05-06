@@ -3,10 +3,10 @@ from Almost_Equitable_Scheduling.Machine import Machine
 from Almost_Equitable_Scheduling.Private import path
 import logging
 
+
 class IOModule:
     input_file = path + "/Almost_Equitable_Scheduling/IO/Input_{INPUT_NAME}.pkl"
     output_file = path + "/Almost_Equitable_Scheduling/IO/Output_{OUTPUT_NAME}.txt"
-
 
     def __init__(self):
         self.file_arrays = []
@@ -33,9 +33,9 @@ class IOModule:
 
     @staticmethod
     def save_output(solution: [Machine], file: str, solname: str):
-        sol_str = "\n" + solname + "\n{SOLUTION}\ngoal function: {MIN_WEIGHT}\n"\
+        sol_str = "\n" + solname + "\n{SOLUTION}\ngoal function: {MIN_WEIGHT}\n" \
             .format(SOLUTION=str(solution), MIN_WEIGHT=str(min(solution.machines).weight))
-        f = IOModule.output_file.format(OUTPUT_NAME = file)
+        f = IOModule.output_file.format(OUTPUT_NAME=file)
         with open(f, "a+") as i:
             i.write(sol_str)
         i.close()

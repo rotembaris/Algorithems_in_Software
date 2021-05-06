@@ -10,6 +10,7 @@ class LPTTest(unittest.TestCase):
     def LPT_solution(input):
         tasks, machines = input[0], input[1]
         solution = LPT(tasks, machines)
+        solution.LPT_solution()
         print("\nLPT {INPUT_NAME}"
               "\n{SOLUTION}"
               "\ngoal function: {MIN_WEIGHT}"

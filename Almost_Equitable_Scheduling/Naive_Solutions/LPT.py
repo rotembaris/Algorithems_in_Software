@@ -7,7 +7,6 @@ class LPT(Solution):
     def __init__(self, tasks, machine_num):
         tasks = sorted(tasks, key=lambda t: t[1])
         super().__init__(tasks, machine_num)
-        self.machines = self.LPT_solution()
 
     def LPT_solution(self) -> [Machine]:
         n = 0
